@@ -386,6 +386,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	if err := s.applyOpenAICodexTicket(ctx, account, upstreamModel, upstreamReq.Header); err != nil {
 		return nil, err
 	}
+	s.bindTicketModelObserver(ctx, c, account, upstreamModel)
 
 	// 7. Send request
 	proxyURL := ""
@@ -843,6 +844,9 @@ func (s *OpenAIGatewayService) readOpenAICompatBufferedTerminal(
 					payload = string(restoreCodexToolNamesFromContext(c, []byte(payload)))
 					var event apicompat.ResponsesStreamEvent
 					if err := json.Unmarshal([]byte(payload), &event); err == nil {
+						if observer := upstreamResponseModelObserverFromContext(c); observer != nil {
+							observer.ObserveOpenAI([]byte(payload), event.Type)
+						}
 						s.parseSSEUsageBytesWithType([]byte(payload), event.Type, &usage)
 						acc.ProcessEvent(&event)
 						if response := openAICompatTerminalResponse(&event, []byte(payload)); isOpenAICompatResponsesTerminalEvent(event.Type) && response != nil {
@@ -889,6 +893,9 @@ func (s *OpenAIGatewayService) readOpenAICompatBufferedTerminal(
 					zap.String("request_id", requestID),
 				)
 				continue
+			}
+			if observer := upstreamResponseModelObserverFromContext(c); observer != nil {
+				observer.ObserveOpenAI([]byte(payload), event.Type)
 			}
 			s.parseSSEUsageBytesWithType([]byte(payload), event.Type, &usage)
 

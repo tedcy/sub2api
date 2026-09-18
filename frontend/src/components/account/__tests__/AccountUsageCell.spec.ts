@@ -131,6 +131,10 @@ describe('AccountUsageCell', () => {
     expect(wrapper.text()).toContain('42m00s')
     expect(wrapper.text()).toContain('admin.accounts.openai.codexTurnTicketPaused')
     expect(wrapper.text()).toContain('admin.accounts.openai.codexTurnTicketMissing')
+    await wrapper.setProps({ account: { ...wrapper.props('account'), codex_turn_tickets: [
+      { model: 'gpt-6-astra', ready: false, remaining_seconds: 0, blocked: true, revocation_reason: 'upstream_model_downgrade' },
+    ] } })
+    expect(wrapper.text()).toContain('admin.accounts.openai.codexTurnTicketRevoked')
     if (type === 'setup-token') {
       expect(getUsage).not.toHaveBeenCalled()
       expect(wrapper.find('[data-test="quota-reset"]').exists()).toBe(false)

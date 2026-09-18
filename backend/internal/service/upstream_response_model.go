@@ -14,7 +14,8 @@ const (
 
 // upstreamResponseModelObserver tracks one forwarding attempt (or one WS turn).
 // A terminal declaration wins over an earlier declaration; otherwise the first
-// declaration is retained. Observation never affects the forwarding path.
+// declaration is retained. An optional synchronous callback can revoke future
+// model eligibility without interrupting the response currently being forwarded.
 //
 // Billing normally ignores the observed model as well; the only exception is a
 // channel explicitly configured with billing_model_source = response_model,
@@ -26,6 +27,7 @@ const (
 // separate from the final outbound request tier until usage recording resolves
 // the billable tier for the selected credential protocol.
 type upstreamResponseModelObserver struct {
+	onModel  func(string)
 	first    string
 	terminal string
 	conflict bool
@@ -44,6 +46,9 @@ func (o *upstreamResponseModelObserver) Observe(model string, terminal bool) {
 		return
 	}
 	current := o.Model()
+	if o.onModel != nil {
+		o.onModel(model)
+	}
 	if current != "" && !strings.EqualFold(current, model) {
 		o.conflict = true
 	}

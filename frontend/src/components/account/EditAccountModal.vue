@@ -2266,6 +2266,9 @@
             <span v-if="ticket.ready" class="text-emerald-600 dark:text-emerald-400">
               {{ t('admin.accounts.openai.codexTurnTicketReady', { time: formatCodexTicketRemaining(ticket.remaining_seconds) }) }}
             </span>
+            <span v-else-if="ticket.revocation_reason" class="text-amber-600 dark:text-amber-400">
+              {{ t('admin.accounts.openai.codexTurnTicketRevoked') }}
+            </span>
             <span v-else-if="ticket.blocked" class="text-amber-600 dark:text-amber-400">
               {{ t('admin.accounts.openai.codexTurnTicketPaused') }}
             </span>

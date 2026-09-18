@@ -12,6 +12,7 @@ import (
 // A refreshed cache ticket cannot renew an already established WS handshake.
 // Keep only the identity and deadline, never the secret turn-state value.
 type openAIWSTicketBinding struct {
+	version   uint64
 	model     string
 	expiresAt time.Time
 }
@@ -23,6 +24,8 @@ func (s *OpenAIGatewayService) checkOpenAIWSTicket(ctx context.Context, account 
 	}
 	reason := ""
 	switch {
+	case binding.version != s.codexTicketVersion(account, model):
+		reason = "handshake_ticket_revoked"
 	case binding.model != model:
 		reason = "handshake_ticket_model_mismatch"
 	case !now.Before(binding.expiresAt):

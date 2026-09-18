@@ -151,6 +151,8 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	storeDisabledConnMode := s.openAIWSStoreDisabledConnMode()
 	forceNewConnByPolicy := shouldForceNewConnOnStoreDisabled(storeDisabledConnMode, lastFailureReason)
 	forceNewConn := forceNewConnByPolicy && storeDisabled && previousResponseID == "" && sessionHash != "" && preferredConnID == ""
+	var ticketBinding openAIWSTicketBinding
+	responseModelObserver = s.ticketModelObserver(ctx, account, openAIWSPayloadString(payload, "model"))
 	wsHeaders, sessionResolution, buildHdrErr := s.buildOpenAIWSHeaders(
 		ctx,
 		c,
@@ -163,6 +165,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		promptCacheKey,
 		openAIWSPayloadString(payload, "model"),
 		openAIWSPayloadString(payload, "service_tier"),
+		&ticketBinding,
 	)
 	if buildHdrErr != nil {
 		return nil, fmt.Errorf("build ws headers: %w", buildHdrErr)
@@ -203,9 +206,10 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	defer acquireCancel()
 
 	lease, err := s.getOpenAIWSConnPool().Acquire(acquireCtx, openAIWSAcquireRequest{
-		Account: account,
-		WSURL:   wsURL,
-		Headers: wsHeaders,
+		TicketBinding: ticketBinding,
+		Account:       account,
+		WSURL:         wsURL,
+		Headers:       wsHeaders,
 		HeadersFactory: func(factoryCtx context.Context, headers http.Header) (http.Header, error) {
 			return s.refreshOpenAIAgentIdentityHeaders(factoryCtx, account, headers)
 		},
@@ -342,6 +346,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		return nil, err
 	}
 
+	if err := s.checkOpenAIWSTicket(ctx, account, ticketBinding, openAIWSPayloadString(payload, "model"), 1, time.Now()); err != nil {
+		return nil, err
+	}
 	if err := lease.WriteJSONWithContextTimeout(ctx, payload, s.openAIWSWriteTimeout()); err != nil {
 		lease.MarkBroken()
 		logOpenAIWSModeInfo(

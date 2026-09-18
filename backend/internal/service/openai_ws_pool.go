@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"math"
@@ -81,9 +82,12 @@ type openAIWSAcquireRequest struct {
 	ForceNewConn bool
 	// ForcePreferredConn: 强制本次只使用 PreferredConnID，禁止漂移到其它连接。
 	ForcePreferredConn bool
+	TicketBinding      openAIWSTicketBinding
 }
 
 type openAIWSHandshakeCompatibilityKey struct {
+	ticketDigest        [32]byte
+	ticketBinding       openAIWSTicketBinding
 	betaFeatures        string
 	codexInstallationID string
 	sessionIDHyphen     string
@@ -1145,7 +1149,7 @@ func (p *openAIWSConnPool) acquire(ctx context.Context, req openAIWSAcquireReque
 
 retryAcquire:
 	accountID := req.Account.ID
-	compatibility := normalizeOpenAIWSHandshakeCompatibility(req.Account, req.Headers)
+	compatibility := normalizeOpenAIWSHandshakeCompatibility(req.Account, req.Headers, req.TicketBinding)
 	routingAffinity := normalizeOpenAIWSRoutingAffinity(req.Headers)
 	effectiveMaxConns := p.effectiveMaxConnsByAccount(req.Account)
 	if effectiveMaxConns <= 0 {
@@ -2152,7 +2156,7 @@ func (p *openAIWSConnPool) dialConn(ctx context.Context, req openAIWSAcquireRequ
 	accountID := req.Account.ID
 	evict := func() { p.evictConn(accountID, id) }
 	pooledConn.onPeerClosed.Store(&evict)
-	pooledConn.handshakeCompatibility = normalizeOpenAIWSHandshakeCompatibility(req.Account, req.Headers)
+	pooledConn.handshakeCompatibility = normalizeOpenAIWSHandshakeCompatibility(req.Account, req.Headers, req.TicketBinding)
 	pooledConn.routingAffinity = normalizeOpenAIWSRoutingAffinity(req.Headers)
 	return pooledConn, nil
 }
@@ -2333,7 +2337,7 @@ func cloneOpenAIWSAcquireRequestPtr(req *openAIWSAcquireRequest) *openAIWSAcquir
 func sameOpenAIWSPrewarmTarget(a, b openAIWSAcquireRequest) bool {
 	return stringsTrim(a.WSURL) == stringsTrim(b.WSURL) &&
 		stringsTrim(a.ProxyURL) == stringsTrim(b.ProxyURL) &&
-		normalizeOpenAIWSHandshakeCompatibility(a.Account, a.Headers) == normalizeOpenAIWSHandshakeCompatibility(b.Account, b.Headers)
+		normalizeOpenAIWSHandshakeCompatibility(a.Account, a.Headers, a.TicketBinding) == normalizeOpenAIWSHandshakeCompatibility(b.Account, b.Headers, b.TicketBinding)
 }
 
 func normalizeOpenAIWSBetaFeatures(headers http.Header) string {
@@ -2361,9 +2365,14 @@ func normalizeOpenAIWSBetaFeatures(headers http.Header) string {
 	return strings.Join(normalized, ",")
 }
 
-func normalizeOpenAIWSHandshakeCompatibility(account *Account, headers http.Header) openAIWSHandshakeCompatibilityKey {
+func normalizeOpenAIWSHandshakeCompatibility(account *Account, headers http.Header, bindings ...openAIWSTicketBinding) openAIWSHandshakeCompatibilityKey {
 	key := openAIWSHandshakeCompatibilityKey{
 		betaFeatures: normalizeOpenAIWSBetaFeatures(headers),
+	}
+	if len(bindings) > 0 && bindings[0].model != "" {
+		key.ticketBinding = bindings[0]
+		key.ticketBinding.expiresAt = key.ticketBinding.expiresAt.Round(0)
+		key.ticketDigest = sha256.Sum256([]byte(headers.Get(openAICodexTurnStateHeader)))
 	}
 	mode := activeCodexFingerprintMode(account)
 	if mode == codexFingerprintOff {

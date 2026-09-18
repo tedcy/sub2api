@@ -78,7 +78,7 @@ func TestOpenAIWSTicketBinding(t *testing.T) {
 // nor replay the retained initial request, for text and binary clients alike.
 func TestPassthroughLifecycle_TicketUnavailable(t *testing.T) {
 	for _, messageType := range []coderws.MessageType{coderws.MessageText, coderws.MessageBinary} {
-		for _, scenario := range []string{"missing", "mapped_model", "session_model"} {
+		for _, scenario := range []string{"missing", "mapped_model", "session_model", "downgrade"} {
 			t.Run(messageType.String()+"/"+scenario, func(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
@@ -119,7 +119,11 @@ func TestPassthroughLifecycle_TicketUnavailable(t *testing.T) {
 				case <-time.After(3 * time.Second):
 					t.Fatal("initial request not forwarded")
 				}
-				upstream.Send(`{"type":"response.completed","response":{"id":"resp_first","model":"gpt-6-astra","usage":{"input_tokens":1,"output_tokens":1}}}`)
+				responseModel := "gpt-6-astra"
+				if scenario == "downgrade" {
+					responseModel = "gpt-5.6-luna"
+				}
+				upstream.Send(fmt.Sprintf(`{"type":"response.completed","response":{"id":"resp_first","model":%q,"usage":{"input_tokens":1,"output_tokens":1}}}`, responseModel))
 				_, err := readPassthroughLifecycleFrame(t, client, 3*time.Second)
 				require.NoError(t, err)
 				if scenario == "missing" {

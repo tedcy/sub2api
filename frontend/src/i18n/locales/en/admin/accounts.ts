@@ -672,6 +672,7 @@ export default {
         codexTurnTicketMissing: 'No valid ticket; requests remain allowed',
         codexTurnTicketReady: '{time} left',
         codexTurnTicketPaused: 'No 292 ticket; this model is paused',
+        codexTurnTicketRevoked: 'Upstream downgrade detected; ticket revoked, awaiting verification',
         codexImageTool: 'Codex image bridge policy',
         codexImageToolDesc:
           'Controls the hosted image_generation bridge and client-declared image tools on Codex /responses text requests. Hosted auto-injection applies only to non-Responses Lite requests. Account policy takes precedence over channel and global settings; standalone image-generation endpoints are unaffected.',

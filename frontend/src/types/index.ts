@@ -1169,6 +1169,8 @@ export interface Account {
   credentials_status?: Record<string, boolean>
   ollama_cloud_usage?: OllamaCloudUsageState
   codex_turn_tickets?: Array<{
+    revocation_reason?: string
+    revoked_at?: string
     model: string
     length?: number
     ready: boolean

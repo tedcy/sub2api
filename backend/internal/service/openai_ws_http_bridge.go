@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	coderws "github.com/coder/websocket"
 	"io"
 	"net/http"
 	"slices"
@@ -420,6 +421,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 	grokCacheIdentity string,
 	turn int,
 	writeClientMessage func([]byte) error,
+	ticketVersions ...map[string]uint64,
 ) (*OpenAIForwardResult, error) {
 	if s == nil {
 		return nil, errors.New("service is nil")
@@ -438,6 +440,13 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 	body, err := prepareOpenAIWSHTTPBridgeBody(account, payload)
 	if err != nil {
 		return nil, fmt.Errorf("prepare http bridge body: %w", err)
+	}
+	responseModelObserver = s.ticketModelObserver(ctx, account, extractOpenAICodexTicketModel(body))
+	if len(ticketVersions) > 0 && isOpenAICodexTicketAccount(account) && s.openAICodexTicketGatedModel(extractOpenAICodexTicketModel(body)) && s.openAICodexTicketConfig().FailClosed {
+		model := extractOpenAICodexTicketModel(body)
+		if ticketVersions[0][model] != s.codexTicketVersion(account, model) || s.openAICodexTicketBlocksAccount(account, model) {
+			return nil, NewOpenAIWSClientCloseError(coderws.StatusTryAgainLater, "model ticket revoked, please reconnect", ErrOpenAICodexTicketUnavailable)
+		}
 	}
 	grokIntentSourceBody := append([]byte(nil), body...)
 	_, grokExplicitToolsField := openAIWSHTTPBridgeRawField(grokIntentSourceBody, "tools")

@@ -565,6 +565,12 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	refreshIngressRouteState(firstPayload)
 
 	if useHTTPBridge {
+		ticketVersions := map[string]uint64{}
+		if isOpenAICodexTicketAccount(account) {
+			for _, model := range s.openAICodexTicketConfig().Models {
+				ticketVersions[normalizeOpenAICodexTicketModel(model)] = s.codexTicketVersion(account, model)
+			}
+		}
 		logOpenAIWSModeInfo(
 			"ingress_ws_http_bridge_start account_id=%d account_type=%s payload_bytes=%d threshold_bytes=%d has_session_hash=%v store_disabled=%v",
 			account.ID,
@@ -690,6 +696,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				grokCacheIdentity,
 				turn,
 				writeClientMessage,
+				ticketVersions,
 			)
 			if bridgeErr != nil && isOpenAIWSSessionPreempted(ctx) {
 				return errOpenAIWSSessionPreempted
@@ -772,6 +779,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	}
 
 	firstRoutingFields := gjson.GetManyBytes(firstPayload.payloadRaw, "model", "service_tier")
+	var ticketBinding openAIWSTicketBinding
 	wsHeaders, _, buildHdrErr := s.buildOpenAIWSHeaders(
 		ctx,
 		c,
@@ -784,14 +792,16 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		firstPayload.promptCacheKey,
 		firstRoutingFields[0].String(),
 		firstRoutingFields[1].String(),
+		&ticketBinding,
 	)
 	if buildHdrErr != nil {
 		return fmt.Errorf("build ws headers: %w", buildHdrErr)
 	}
 	baseAcquireReq := openAIWSAcquireRequest{
-		Account: account,
-		WSURL:   wsURL,
-		Headers: wsHeaders,
+		TicketBinding: ticketBinding,
+		Account:       account,
+		WSURL:         wsURL,
+		Headers:       wsHeaders,
 		HeadersFactory: func(factoryCtx context.Context, headers http.Header) (http.Header, error) {
 			return s.refreshOpenAIAgentIdentityHeaders(factoryCtx, account, headers)
 		},
@@ -957,7 +967,11 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 
 	var rejectedFieldRetryState *openAIResponsesRejectedFieldRetryState
 	sendAndRelay := func(turn int, lease *openAIWSConnLease, payload []byte, payloadBytes int, originalModel string, imageBillingModel string, imageSizeTier string, imageInputSize string, requestedReasoningEffort *string) (*OpenAIForwardResult, error) {
-		responseModelObserver := &upstreamResponseModelObserver{}
+		model := gjson.GetBytes(payload, "model").String()
+		responseModelObserver := s.ticketModelObserver(ctx, account, model)
+		if err := s.checkOpenAIWSTicket(ctx, account, ticketBinding, model, turn, time.Now()); err != nil {
+			return nil, err
+		}
 		if lease == nil {
 			return nil, errors.New("upstream websocket lease is nil")
 		}
