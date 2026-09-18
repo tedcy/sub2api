@@ -840,6 +840,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		turnState = strings.TrimSpace(c.GetHeader(openAIWSTurnStateHeader))
 		turnMetadata = strings.TrimSpace(c.GetHeader(openAIWSTurnMetadataHeader))
 	}
+	var ticketBinding openAIWSTicketBinding
 	headers, _, buildHdrErr := s.buildOpenAIWSHeaders(
 		ctx,
 		c,
@@ -852,6 +853,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		promptCacheKey,
 		gjson.GetBytes(firstClientMessage, "model").String(),
 		gjson.GetBytes(firstClientMessage, "service_tier").String(),
+		&ticketBinding,
 	)
 	if buildHdrErr != nil {
 		return fmt.Errorf("build ws headers: %w", buildHdrErr)
@@ -1095,6 +1097,11 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			if isResponseCreate && model != "" && model != strings.TrimSpace(gjson.GetBytes(payload, "model").String()) {
 				payload = s.ReplaceModelInBody(payload, model)
 			}
+			if isResponseCreate {
+				if err := s.checkOpenAIWSTicket(ctx, account, ticketBinding, model, turnNo, time.Now()); err != nil {
+					return payload, nil, err
+				}
+			}
 			out, blocked, policyErr := s.applyOpenAIFastPolicyToWSResponseCreate(ctx, account, model, payload)
 			// 多轮 passthrough usage：仅在成功（non-block / non-err）
 			// 的 response.create 帧上更新 usageMeta，使用
@@ -1135,6 +1142,9 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		},
 	}
 	upstreamFirstMessageSent := false
+	if err := s.checkOpenAIWSTicket(ctx, account, ticketBinding, gjson.GetBytes(firstClientMessage, "model").String(), 1, time.Now()); err != nil {
+		return err
+	}
 	firstWriteCtx, cancelFirstWrite := context.WithTimeout(ctx, s.openAIWSWriteTimeout())
 	firstWriteErr := relayUpstreamFrameConn.WriteFrame(firstWriteCtx, coderws.MessageText, firstClientMessage)
 	cancelFirstWrite()

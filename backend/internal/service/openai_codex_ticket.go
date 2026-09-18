@@ -289,7 +289,7 @@ func (s *OpenAIGatewayService) storeOpenAICodexTicket(ctx context.Context, accou
 // applyOpenAICodexTicket 在出站请求上覆盖 x-codex-turn-state。
 // 请求路径只注入已捕获的有效门票，不现场打票；无票则返回
 // ErrOpenAICodexTicketUnavailable。打票由后台 harvester 完成。
-func (s *OpenAIGatewayService) applyOpenAICodexTicket(ctx context.Context, account *Account, model string, h http.Header) error {
+func (s *OpenAIGatewayService) applyOpenAICodexTicket(ctx context.Context, account *Account, model string, h http.Header, bindings ...*openAIWSTicketBinding) error {
 	if s == nil || h == nil || !isOpenAICodexTicketAccount(account) || !s.openAICodexTicketEnabledContext(ctx) {
 		return nil
 	}
@@ -301,6 +301,11 @@ func (s *OpenAIGatewayService) applyOpenAICodexTicket(ctx context.Context, accou
 	ticket := s.lookupOpenAICodexTicket(account, model)
 	if ticket.valid(time.Now(), cfg.TargetLength) {
 		h.Set(openAICodexTurnStateHeader, ticket.State)
+		for _, binding := range bindings {
+			if binding != nil {
+				*binding = openAIWSTicketBinding{model: model, expiresAt: ticket.ExpiresAt}
+			}
+		}
 		return nil
 	}
 	if !cfg.FailClosed {

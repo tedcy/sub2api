@@ -87,6 +87,7 @@ func (s *OpenAIGatewayService) buildOpenAIWSHeaders(
 	promptCacheKey string,
 	routingModel string,
 	routingServiceTier string,
+	ticketBindings ...*openAIWSTicketBinding,
 ) (http.Header, openAIWSSessionHeaderResolution, error) {
 	headers := make(http.Header)
 	if account == nil || !account.IsOpenAIAgentIdentity() {
@@ -141,7 +142,7 @@ func (s *OpenAIGatewayService) buildOpenAIWSHeaders(
 	if state := strings.TrimSpace(turnState); state != "" {
 		headers.Set(openAIWSTurnStateHeader, state)
 	}
-	if err := s.applyOpenAICodexTicket(ctx, account, routingModel, headers); err != nil {
+	if err := s.applyOpenAICodexTicket(ctx, account, routingModel, headers, ticketBindings...); err != nil {
 		return nil, sessionResolution, err
 	}
 	if metadata := strings.TrimSpace(turnMetadata); metadata != "" {
