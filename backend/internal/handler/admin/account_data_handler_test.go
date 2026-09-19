@@ -335,6 +335,7 @@ func TestExportDataExcludesCodexTicketMaterial(t *testing.T) {
 	require.Equal(t, map[string]any{"ordinary": "retained"}, resp.Data.Accounts[0].Extra)
 	require.Equal(t, "backup-token", resp.Data.Accounts[0].Credentials["access_token"])
 	require.NotContains(t, rec.Body.String(), "private-ticket-blob")
+	require.NotContains(t, rec.Body.String(), "probe_attempts")
 	require.NotContains(t, rec.Body.String(), "legacy-proxy-secret")
 	require.Contains(t, extra, "codex_turn_ticket:gpt-6-astra")
 	require.Contains(t, extra, "codex_harvest_proxy_url")

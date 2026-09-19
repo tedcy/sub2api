@@ -746,6 +746,8 @@ export default {
         codexFingerprintSession: '设备+会话',
         codexFingerprintFull: '完全收敛',
         codexTurnTicket: 'Codex 292 门票',
+        codexTurnTicketAttempts: '打票 {count} 次',
+        codexTurnTicketWaiting: '等待打票',
         codexTurnTicketDesc: '显示已配置模型的门票状态。仅在启用缺票拦截时，没有有效门票的模型才会暂停调度。',
         codexTurnTicketMissing: '暂无有效门票，仍允许请求',
         codexTurnTicketReady: '剩余 {time}',

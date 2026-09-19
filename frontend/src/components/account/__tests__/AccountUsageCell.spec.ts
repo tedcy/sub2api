@@ -20,7 +20,7 @@ vi.mock('vue-i18n', async () => {
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string) => key
+      t: (key: string, params?: { count?: number }) => params?.count !== undefined ? `${key}:${params.count}` : key
     })
   }
 })
@@ -115,8 +115,8 @@ describe('AccountUsageCell', () => {
           platform: 'openai',
           type,
           codex_turn_tickets: [
-            { model: 'gpt-6-astra', ready: true, remaining_seconds: 2520, blocked: false },
-            { model: 'gpt-5.6-sol', ready: false, remaining_seconds: 0, blocked: true },
+            { model: 'gpt-6-astra', ready: true, remaining_seconds: 2520, blocked: false, probe_attempts: 16 },
+            { model: 'gpt-5.6-sol', ready: false, remaining_seconds: 0, blocked: true, probe_attempts: 20 },
             { model: 'custom-model', ready: false, remaining_seconds: 0, blocked: false },
           ],
         }),
@@ -129,6 +129,12 @@ describe('AccountUsageCell', () => {
     })
     await flushPromises()
     expect(wrapper.text()).toContain('42m00s')
+    const attempts = wrapper.findAll('[data-test="ticket-attempts"]')
+    expect(attempts[0].text()).toContain('codexTurnTicketAttempts:16')
+    expect(attempts[0].text()).not.toContain('codexTurnTicketWaiting')
+    expect(attempts[1].text()).toContain('codexTurnTicketAttempts:20')
+    expect(attempts[1].text()).toContain('codexTurnTicketWaiting')
+    expect(attempts[2].text()).toContain('codexTurnTicketAttempts:0')
     expect(wrapper.text()).toContain('admin.accounts.openai.codexTurnTicketPaused')
     expect(wrapper.text()).toContain('admin.accounts.openai.codexTurnTicketMissing')
     await wrapper.setProps({ account: { ...wrapper.props('account'), codex_turn_tickets: [

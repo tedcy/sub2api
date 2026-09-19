@@ -25,6 +25,11 @@ type openAICodexTicketState struct {
 	dirty     bool
 	accountID int64
 	model     string
+	// Memory-only round state. The expiry watermark prevents stale snapshots
+	// from resetting a round twice; probe completion never writes the count.
+	probeAttempts uint64
+	probeExpiry   time.Time
+	probeExpired  bool
 }
 
 func codexTicketRevocationKey(model string) string {
@@ -90,6 +95,8 @@ func (s *OpenAIGatewayService) revokeCodexTicket(ctx context.Context, account *A
 	state.Revoked = true
 	state.Reason = "upstream_model_downgrade"
 	state.At = time.Now()
+	state.probeAttempts = 0
+	state.probeExpired = true
 	s.openaiCodexTickets.Delete(openAICodexTicketKey(account.ID, state.model))
 	state.dirty = true
 	logger.FromContext(ctx).Warn("openai_codex_ticket revoked", zap.Int64("account_id", account.ID), zap.String("sent_model", state.model), zap.String("response_model", strings.TrimSpace(observed)), zap.Uint64("version", state.Version))

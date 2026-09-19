@@ -49,7 +49,7 @@ vi.mock('vue-i18n', async () => {
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string) => key
+      t: (key: string, params?: { count?: number }) => params?.count !== undefined ? `${key}:${params.count}` : key
     })
   }
 })
@@ -324,6 +324,23 @@ function mountModal(account = buildAccount(), renderGroupSelector = false) {
 }
 
 describe('EditAccountModal', () => {
+  it('shows current-round ticket attempts and waits only without a valid ticket', () => {
+    const account = buildOpenAIOAuthParentAccount()
+    account.codex_turn_tickets = [
+      { model: 'gpt-6-astra', ready: true, remaining_seconds: 600, blocked: false, probe_attempts: 16 },
+      { model: 'gpt-5.6-sol', ready: false, remaining_seconds: 0, blocked: true, probe_attempts: 0 },
+    ]
+    const wrapper = mountModal(account)
+    const rows = wrapper.findAll('[data-test="ticket-attempts"]')
+    expect(rows).toHaveLength(2)
+    expect(rows[0].text()).toContain('codexTurnTicketAttempts:16')
+    expect(rows[0].text()).not.toContain('codexTurnTicketWaiting')
+    expect(rows[1].text()).toContain('codexTurnTicketAttempts:0')
+    expect(rows[1].text()).toContain('codexTurnTicketWaiting')
+    expect(wrapper.text()).toContain('codexTurnTicketPaused')
+    wrapper.unmount()
+  })
+
   beforeEach(() => {
     authIsSimpleMode.value = true
   })

@@ -110,6 +110,7 @@ type OpenAICodexTicketStatus struct {
 	ExpiresAt        *time.Time `json:"expires_at,omitempty"`
 	RevocationReason string     `json:"revocation_reason,omitempty"`
 	RevokedAt        *time.Time `json:"revoked_at,omitempty"`
+	ProbeAttempts    uint64     `json:"probe_attempts"`
 }
 
 func OpenAICodexTicketStatuses(account *Account, cfg config.OpenAICodexTicketConfig, now time.Time) []OpenAICodexTicketStatus {
@@ -304,6 +305,8 @@ func (s *OpenAIGatewayService) storeOpenAICodexTicket(ctx context.Context, accou
 		logger.L().Info("openai_codex_ticket recovered", zap.Int64("account_id", account.ID), zap.String("model", model), zap.Uint64("version", state.Version))
 	}
 	state.openAICodexTicketRevocation = next
+	state.expireProbeRound(time.Now())
+	state.observeProbeTicket(ticket)
 	s.openaiCodexTickets.Store(openAICodexTicketKey(account.ID, model), ticket)
 	return true
 }
@@ -409,6 +412,7 @@ func (s *OpenAIGatewayService) fireOpenAICodexTicketProbe(ctx context.Context, a
 	// Synthetic probes must use the dedicated no-reuse transport even when the
 	// production account is bound to a plugin. This also avoids reading pluginManager
 	// while handlers are still wiring it during gateway construction.
+	s.recordCodexTicketProbe(account, model, time.Now())
 	resp, err := s.httpUpstream.Do(req, proxyURL, account.ID, account.Concurrency)
 	if err != nil {
 		return "", 0, err
