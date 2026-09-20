@@ -125,6 +125,10 @@ describe('AccountUsageCell', () => {
         OpenAIQuotaResetCell: { template: '<div data-test="quota-reset" />' },
         UsageProgressBar: true,
         AccountQuotaInfo: true,
+        CodexTicketLogsDialog: {
+          props: ['show', 'account', 'model'],
+          template: '<div v-if="show" data-test="ticket-logs-dialog">{{ account.id }} {{ model }}<button @click="$emit(\'close\')">close</button></div>',
+        },
       } },
     })
     await flushPromises()
@@ -135,6 +139,15 @@ describe('AccountUsageCell', () => {
     expect(attempts[1].text()).toContain('codexTurnTicketAttempts:20')
     expect(attempts[1].text()).toContain('codexTurnTicketWaiting')
     expect(attempts[2].text()).toContain('codexTurnTicketAttempts:0')
+    expect(wrapper.find('[data-test="ticket-logs-dialog"]').exists()).toBe(false)
+    for (const [index, model] of ['gpt-6-astra', 'gpt-5.6-sol'].entries()) {
+      await attempts[index].get('button').trigger('click')
+      const dialog = wrapper.get('[data-test="ticket-logs-dialog"]')
+      expect(dialog.text()).toContain(String(wrapper.props('account').id))
+      expect(dialog.text()).toContain(model)
+      await dialog.get('button').trigger('click')
+      expect(wrapper.find('[data-test="ticket-logs-dialog"]').exists()).toBe(false)
+    }
     expect(wrapper.text()).toContain('admin.accounts.openai.codexTurnTicketPaused')
     expect(wrapper.text()).toContain('admin.accounts.openai.codexTurnTicketMissing')
     await wrapper.setProps({ account: { ...wrapper.props('account'), codex_turn_tickets: [

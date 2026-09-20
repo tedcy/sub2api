@@ -666,8 +666,8 @@
         class="text-xs text-gray-400"
       >-</div>
     </div>
-    <CodexTicketLogsDialog v-if="ticketLogModel" :show="true" :account="account" :model="ticketLogModel" @close="ticketLogModel = ''" />
   </div>
+  <CodexTicketLogsDialog v-if="ticketLogModel" :show="true" :account="account" :model="ticketLogModel" @close="ticketLogModel = ''" />
 </template>
 
 <script setup lang="ts">
