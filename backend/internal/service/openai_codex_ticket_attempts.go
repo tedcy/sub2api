@@ -34,12 +34,13 @@ func (s *OpenAIGatewayService) syncProbeRound(state *openAICodexTicketState, acc
 	state.expireProbeRound(now)
 }
 
-func (s *OpenAIGatewayService) recordCodexTicketProbe(account *Account, model string, now time.Time) {
+func (s *OpenAIGatewayService) recordCodexTicketProbe(account *Account, model string, now time.Time) uint64 {
 	state := s.codexTicketState(account, model)
 	state.Lock()
 	defer state.Unlock()
 	s.syncProbeRound(state, account, now)
 	state.probeAttempts++
+	return state.probeAttempts
 }
 
 // OpenAICodexTicketStatuses enriches the existing summary from this gateway's
@@ -56,6 +57,9 @@ func (s *OpenAIGatewayService) OpenAICodexTicketStatuses(account *Account, cfg c
 		s.syncProbeRound(state, account, now)
 		statuses[i].ProbeAttempts = state.probeAttempts
 		state.Unlock()
+		statuses[i].TokenInvalid = s.openAICodexTicketTokenInvalid(account)
+		statuses[i].HarvestPaused = s.openAICodexTicketHarvestPaused(account, now)
+		statuses[i].RateLimited = account.IsRateLimited()
 	}
 	return statuses
 }

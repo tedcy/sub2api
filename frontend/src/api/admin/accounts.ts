@@ -1071,7 +1071,32 @@ export async function refreshOllamaCloudUsage(id: number): Promise<OllamaCloudUs
   return data
 }
 
+export interface CodexTicketLogEntry {
+  id: number
+  time: string
+  attempt: number
+  event: string
+  reason: string
+  http_status?: number
+  ticket_length: number
+  duration_ms: number
+}
+
+export interface CodexTicketLogsResponse {
+  model: string
+  entries: CodexTicketLogEntry[]
+  status: NonNullable<Account['codex_turn_tickets']>[number] | null
+  limit: number
+  target_length: number
+}
+
+export async function getCodexTicketLogs(id: number, model: string, signal?: AbortSignal): Promise<CodexTicketLogsResponse> {
+  const { data } = await apiClient.get<CodexTicketLogsResponse>(`/admin/accounts/${id}/codex-ticket-logs`, { params: { model }, signal })
+  return data
+}
+
 export const accountsAPI = {
+  getCodexTicketLogs,
   list,
   listWithEtag,
   getUpstreamBillingRatesWithEtag,

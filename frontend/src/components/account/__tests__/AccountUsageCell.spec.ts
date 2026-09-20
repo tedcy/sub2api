@@ -141,6 +141,13 @@ describe('AccountUsageCell', () => {
       { model: 'gpt-6-astra', ready: false, remaining_seconds: 0, blocked: true, revocation_reason: 'upstream_model_downgrade' },
     ] } })
     expect(wrapper.text()).toContain('admin.accounts.openai.codexTurnTicketRevoked')
+    await wrapper.setProps({ account: { ...wrapper.props('account'), codex_turn_tickets: [
+      { model: 'gpt-6-astra', ready: false, remaining_seconds: 0, blocked: true, token_invalid: true },
+      { model: 'gpt-5.6-sol', ready: false, remaining_seconds: 0, blocked: true, harvest_paused: true },
+    ] } })
+    expect(wrapper.text()).toContain('codexTurnTicketTokenInvalid')
+    expect(wrapper.text()).toContain('codexTurnTicketQuotaPaused')
+    expect(wrapper.text()).not.toContain('codexTurnTicketWaiting')
     if (type === 'setup-token') {
       expect(getUsage).not.toHaveBeenCalled()
       expect(wrapper.find('[data-test="quota-reset"]').exists()).toBe(false)

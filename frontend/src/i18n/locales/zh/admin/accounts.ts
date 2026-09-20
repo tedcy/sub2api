@@ -748,6 +748,23 @@ export default {
         codexTurnTicket: 'Codex 292 门票',
         codexTurnTicketAttempts: '打票 {count} 次',
         codexTurnTicketWaiting: '等待打票',
+        codexTurnTicketTokenInvalid: '令牌失效，已停止打票',
+        codexTurnTicketQuotaPaused: '额度耗尽，暂停打票',
+        codexTurnTicketRateLimited: '限流中，暂停打票',
+        ticketLogs: {
+          title: '打票日志统计',
+          retention: '仅保留当前进程最近 {count} 条事件，重启后清空。打开时每 5 秒刷新。统计仅针对保留的记录，不是历史总量。',
+          summary: '请求 {requests} 次 · 保存成功 {saved} 次 · 未成功 {misses} 次',
+          failed: '日志刷新失败，请重试。',
+          empty: '暂无打票记录',
+          time: '时间', attempt: '本轮次数', result: '结果 / 原因', length: '票长 / 目标', duration: '耗时',
+          reasons: {
+            request_started: '开始请求', token_error: '获取令牌失败，未发送', token_invalid: '401：令牌失效，停止打票',
+            quota_exhausted: '429：额度耗尽，暂停打票', http_error: 'HTTP 错误', missing_state: '响应未带门票',
+            length_mismatch: '票长未达标', invalid_state: '门票前缀不合法', valid_ticket: '收到有效门票，等待保存',
+            harvested: '门票已保存', save_rejected: '保存失败或旧轮次结果被丢弃', timeout: '请求超时', canceled: '请求取消', request_error: '请求或网络错误'
+          }
+        },
         codexTurnTicketDesc: '显示已配置模型的门票状态。仅在启用缺票拦截时，没有有效门票的模型才会暂停调度。',
         codexTurnTicketMissing: '暂无有效门票，仍允许请求',
         codexTurnTicketReady: '剩余 {time}',

@@ -2276,8 +2276,11 @@
               <span v-else class="text-gray-500">{{ t('admin.accounts.openai.codexTurnTicketMissing') }}</span>
             </div>
             <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400" data-test="ticket-attempts">
-              <span>{{ t('admin.accounts.openai.codexTurnTicketAttempts', { count: ticket.probe_attempts ?? 0 }) }}</span>
-              <span v-if="!ticket.ready">{{ t('admin.accounts.openai.codexTurnTicketWaiting') }}</span>
+              <button type="button" class="underline decoration-dotted" :title="t('admin.accounts.openai.ticketLogs.title')" @click="ticketLogModel = ticket.model">{{ t('admin.accounts.openai.codexTurnTicketAttempts', { count: ticket.probe_attempts ?? 0 }) }}</button>
+              <span v-if="ticket.token_invalid" class="text-red-600">{{ t('admin.accounts.openai.codexTurnTicketTokenInvalid') }}</span>
+              <span v-else-if="ticket.harvest_paused">{{ t('admin.accounts.openai.codexTurnTicketQuotaPaused') }}</span>
+              <span v-else-if="ticket.rate_limited">{{ t('admin.accounts.openai.codexTurnTicketRateLimited') }}</span>
+              <span v-else-if="!ticket.ready">{{ t('admin.accounts.openai.codexTurnTicketWaiting') }}</span>
             </div>
           </div>
         </div>
@@ -3036,6 +3039,7 @@
       </div>
     </template>
   </BaseDialog>
+  <CodexTicketLogsDialog v-if="show && account && ticketLogModel" :show="true" :account="account" :model="ticketLogModel" @close="ticketLogModel = ''" />
 
   <!-- Mixed Channel Warning Dialog -->
   <ConfirmDialog
@@ -3071,6 +3075,9 @@ import type {
   GrokMediaEligibilityState
 } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import CodexTicketLogsDialog from './CodexTicketLogsDialog.vue'
+
+const ticketLogModel = ref('')
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select from '@/components/common/Select.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'

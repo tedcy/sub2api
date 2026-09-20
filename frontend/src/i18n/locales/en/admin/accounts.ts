@@ -670,6 +670,23 @@ export default {
         codexTurnTicket: 'Codex 292 ticket',
         codexTurnTicketAttempts: '{count} ticket attempts',
         codexTurnTicketWaiting: 'Awaiting ticket',
+        codexTurnTicketTokenInvalid: 'Invalid token; harvesting stopped',
+        codexTurnTicketQuotaPaused: 'Quota exhausted; harvesting paused',
+        codexTurnTicketRateLimited: 'Rate limited; harvesting paused',
+        ticketLogs: {
+          title: 'Ticket probe logs',
+          retention: 'Only the latest {count} events in this process are retained; restarting clears them. Refreshes every 5 seconds while open. Counts cover retained records, not lifetime totals.',
+          summary: '{requests} requests · {saved} saved · {misses} unsuccessful',
+          failed: 'Could not refresh logs. Please retry.',
+          empty: 'No ticket probe records',
+          time: 'Time', attempt: 'Round attempt', result: 'Result / reason', length: 'Length / target', duration: 'Duration',
+          reasons: {
+            request_started: 'Request started', token_error: 'Token unavailable; not sent', token_invalid: '401: invalid token; stopped',
+            quota_exhausted: '429: quota exhausted; paused', http_error: 'HTTP error', missing_state: 'No ticket header',
+            length_mismatch: 'Ticket length mismatch', invalid_state: 'Invalid ticket prefix', valid_ticket: 'Valid ticket received; pending save',
+            harvested: 'Ticket saved', save_rejected: 'Save failed or stale result discarded', timeout: 'Request timed out', canceled: 'Request canceled', request_error: 'Request or network error'
+          }
+        },
         codexTurnTicketDesc: 'Ticket status for the configured models. Requests are paused without a valid ticket only when fail-closed is enabled.',
         codexTurnTicketMissing: 'No valid ticket; requests remain allowed',
         codexTurnTicketReady: '{time} left',
