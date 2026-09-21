@@ -667,7 +667,7 @@ export default {
         codexFingerprintDevice: 'Device only',
         codexFingerprintSession: 'Device + Session',
         codexFingerprintFull: 'Full convergence',
-        codexTurnTicket: 'Codex 292 ticket',
+        codexTurnTicket: 'Codex ticket',
         codexTurnTicketAttempts: '{count} ticket attempts',
         codexTurnTicketWaiting: 'Awaiting ticket',
         codexTurnTicketTokenInvalid: 'Invalid token; harvesting stopped',
@@ -690,7 +690,7 @@ export default {
         codexTurnTicketDesc: 'Ticket status for the configured models. Requests are paused without a valid ticket only when fail-closed is enabled.',
         codexTurnTicketMissing: 'No valid ticket; requests remain allowed',
         codexTurnTicketReady: '{time} left',
-        codexTurnTicketPaused: 'No 292 ticket; this model is paused',
+        codexTurnTicketPaused: 'No valid ticket; this model is paused',
         codexTurnTicketRevoked: 'Upstream downgrade detected; ticket revoked, awaiting verification',
         codexImageTool: 'Codex image bridge policy',
         codexImageToolDesc:

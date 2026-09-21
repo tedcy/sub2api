@@ -135,6 +135,12 @@ func TestCodexTicketRecoveryRequiresOnlyValid292(t *testing.T) {
 }
 
 func TestCodexTicketHTTPResponsePaths(t *testing.T) {
+	for _, plan := range []string{"plus", "team"} {
+		t.Run(plan, func(t *testing.T) { testCodexTicketHTTPResponsePaths(t, plan) })
+	}
+}
+
+func testCodexTicketHTTPResponsePaths(t *testing.T, plan string) {
 	routes := []string{"json", "sse", "passthrough_json", "chat_buffered", "messages_buffered", "ws_http_bridge"}
 	for _, route := range routes {
 		routes = append(routes, route+"_unselected")
@@ -146,6 +152,8 @@ func TestCodexTicketHTTPResponsePaths(t *testing.T) {
 			ctx := context.Background()
 			account := ticketTestAccount(41)
 			account.Concurrency = 1
+			account.Credentials["plan_type"] = plan
+			length := openAICodexTicketTargetLength(account, 292)
 			model := "gpt-5.6-sol"
 			sse := "data: {\"type\":\"response.created\",\"response\":{\"model\":\"gpt-5.6-luna\"}}\n\n" + "data: {\"type\":\"response.output_text.delta\",\"delta\":\"hello\"}\n\n" + ticketProbeSSE(model)
 			resp := &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"text/event-stream"}}, Body: io.NopCloser(strings.NewReader(sse))}
@@ -154,7 +162,7 @@ func TestCodexTicketHTTPResponsePaths(t *testing.T) {
 			if unselected {
 				svc.cfg.Gateway.OpenAICodexTicket.Models = []string{"gpt-6-astra"}
 			}
-			svc.storeOpenAICodexTicket(ctx, account, &openAICodexTicket{Model: model, State: fakeCodexTicketState(292), Length: 292, ExpiresAt: time.Now().Add(time.Hour)})
+			svc.storeOpenAICodexTicket(ctx, account, &openAICodexTicket{Model: model, State: fakeCodexTicketState(length), Length: length, ExpiresAt: time.Now().Add(time.Hour)})
 			c, _ := gin.CreateTestContext(httptest.NewRecorder())
 			c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
 			payload := []byte(`{"model":"gpt-5.6-sol","input":"hello"}`)
@@ -220,11 +228,13 @@ func TestCodexTicketPoolCompatibility(t *testing.T) {
 
 func TestCodexTicketPooledWSRevocation(t *testing.T) {
 	for _, selected := range []bool{true, false} {
-		t.Run(fmt.Sprint(selected), func(t *testing.T) { testCodexTicketPooledWSSelection(t, selected) })
+		for _, plan := range []string{"plus", "team"} {
+			t.Run(fmt.Sprint(selected)+"/"+plan, func(t *testing.T) { testCodexTicketPooledWSSelection(t, selected, plan) })
+		}
 	}
 }
 
-func testCodexTicketPooledWSSelection(t *testing.T, selected bool) {
+func testCodexTicketPooledWSSelection(t *testing.T, selected bool, plan string) {
 	ctx := context.Background()
 	cfg := passthroughLifecycleConfig()
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
@@ -242,7 +252,9 @@ func testCodexTicketPooledWSSelection(t *testing.T, selected bool) {
 	account := ticketTestAccount(41)
 	account.Concurrency = 1
 	account.Extra = map[string]any{"openai_oauth_responses_websockets_v2_mode": OpenAIWSIngressModeCtxPool}
-	svc.storeOpenAICodexTicket(ctx, account, &openAICodexTicket{Model: "gpt-6-astra", State: fakeCodexTicketState(292), Length: 292, ExpiresAt: time.Now().Add(time.Hour)})
+	account.Credentials["plan_type"] = plan
+	length := openAICodexTicketTargetLength(account, 292)
+	svc.storeOpenAICodexTicket(ctx, account, &openAICodexTicket{Model: "gpt-6-astra", State: fakeCodexTicketState(length), Length: length, ExpiresAt: time.Now().Add(time.Hour)})
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
 	result, err := svc.Forward(ctx, c, account, []byte(`{"model":"gpt-6-astra","stream":false,"instructions":"help","input":[{"role":"user","content":"hi"}]}`))

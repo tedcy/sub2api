@@ -77,6 +77,12 @@ func TestOpenAIWSTicketBinding(t *testing.T) {
 // Exercise the real relay: a later rejected frame must neither reach upstream
 // nor replay the retained initial request, for text and binary clients alike.
 func TestPassthroughLifecycle_TicketUnavailable(t *testing.T) {
+	for _, plan := range []string{"plus", "team"} {
+		t.Run(plan, func(t *testing.T) { testPassthroughLifecycleTicketUnavailable(t, plan) })
+	}
+}
+
+func testPassthroughLifecycleTicketUnavailable(t *testing.T, plan string) {
 	for _, messageType := range []coderws.MessageType{coderws.MessageText, coderws.MessageBinary} {
 		for _, scenario := range []string{"missing", "mapped_model", "session_model", "downgrade"} {
 			t.Run(messageType.String()+"/"+scenario, func(t *testing.T) {
@@ -90,7 +96,9 @@ func TestPassthroughLifecycle_TicketUnavailable(t *testing.T) {
 				account := ticketTestAccount(41)
 				account.Concurrency = 1
 				account.Extra = map[string]any{"openai_oauth_responses_websockets_v2_mode": OpenAIWSIngressModePassthrough}
-				svc.storeOpenAICodexTicket(ctx, account, &openAICodexTicket{Model: "gpt-6-astra", State: fakeCodexTicketState(292), Length: 292, ExpiresAt: time.Now().Add(time.Hour)})
+				account.Credentials["plan_type"] = plan
+				length := openAICodexTicketTargetLength(account, 292)
+				svc.storeOpenAICodexTicket(ctx, account, &openAICodexTicket{Model: "gpt-6-astra", State: fakeCodexTicketState(length), Length: length, ExpiresAt: time.Now().Add(time.Hour)})
 				var slots, successfulTurns atomic.Int32
 				server, serverErr := startPassthroughLifecycleServerWithHooks(t, ctx, svc, account, func(*gin.Context) *OpenAIWSIngressHooks {
 					return &OpenAIWSIngressHooks{

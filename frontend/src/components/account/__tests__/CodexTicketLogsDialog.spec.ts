@@ -21,6 +21,16 @@ function mountDialog(show = true) {
 describe('CodexTicketLogsDialog', () => {
   beforeEach(() => { vi.useFakeTimers(); getLogs.mockReset(); getLogs.mockResolvedValue(result()) })
   afterEach(() => vi.useRealTimers())
+  it('renders the account-specific Team target length', async () => {
+    const data = result()
+    data.target_length = 332
+    data.entries[1]!.ticket_length = 332
+    getLogs.mockResolvedValue(data)
+    const w = mountDialog(); await flushPromises()
+    expect(w.text()).toContain('332 / 332')
+    expect(w.text()).not.toContain('332 / 292')
+    w.unmount()
+  })
   it('renders diagnostics and counts saved tickets only once', async () => {
     const w = mountDialog(); await flushPromises()
     expect(w.text()).toContain('codexTurnTicketTokenInvalid')

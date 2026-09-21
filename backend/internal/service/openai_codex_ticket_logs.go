@@ -99,7 +99,7 @@ func (s *OpenAIGatewayService) OpenAICodexTicketLogs(ctx context.Context, accoun
 	if model != openAICodexTicketDefaultModel && model != openAICodexTicketDefaultSolModel {
 		return nil, ErrOpenAICodexTicketLogModel
 	}
-	result := &OpenAICodexTicketLogs{Model: model, Entries: []OpenAICodexTicketLogEntry{}, Limit: OpenAICodexTicketLogLimit, TargetLength: cfg.TargetLength}
+	result := &OpenAICodexTicketLogs{Model: model, Entries: []OpenAICodexTicketLogEntry{}, Limit: OpenAICodexTicketLogLimit, TargetLength: openAICodexTicketTargetLength(account, cfg.TargetLength)}
 	if s == nil || !isOpenAICodexTicketAccount(account) {
 		return result, nil
 	}

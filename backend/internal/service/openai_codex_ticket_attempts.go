@@ -61,6 +61,23 @@ func (s *OpenAIGatewayService) OpenAICodexTicketStatuses(account *Account, cfg c
 		s.syncProbeRound(state, account, now)
 		statuses[i].ProbeAttempts = state.probeAttempts
 		state.Unlock()
+		// A successful probe is published to the process cache before the
+		// account snapshot is refreshed. Reflect that live ticket immediately;
+		// persisted snapshots remain the fallback after a restart.
+		if ticket := s.lookupOpenAICodexTicket(account, statuses[i].Model); ticket != nil {
+			targetLen := openAICodexTicketTargetLength(account, cfg.TargetLength)
+			if ticket.valid(now, targetLen) {
+				statuses[i].Ready = true
+				statuses[i].Length = ticket.Length
+				statuses[i].RemainingSeconds = int64(ticket.ExpiresAt.Sub(now) / time.Second)
+				if statuses[i].RemainingSeconds < 0 {
+					statuses[i].RemainingSeconds = 0
+				}
+				exp := ticket.ExpiresAt
+				statuses[i].ExpiresAt = &exp
+			}
+		}
+		statuses[i].Blocked = cfg.FailClosed && !statuses[i].Ready
 		statuses[i].TokenInvalid = s.openAICodexTicketTokenInvalid(account)
 		statuses[i].HarvestPaused = s.openAICodexTicketHarvestPaused(account, now)
 		statuses[i].RateLimited = account.IsRateLimited()

@@ -30,7 +30,7 @@ func (s *OpenAIGatewayService) checkOpenAIWSTicket(ctx context.Context, account 
 		reason = "handshake_ticket_model_mismatch"
 	case !now.Before(binding.expiresAt):
 		reason = "handshake_ticket_expired"
-	case !s.lookupOpenAICodexTicket(account, model).valid(now, s.openAICodexTicketConfig().TargetLength):
+	case !s.lookupOpenAICodexTicket(account, model).valid(now, openAICodexTicketTargetLength(account, s.openAICodexTicketConfig().TargetLength)):
 		reason = "current_ticket_unavailable"
 	}
 	if reason == "" {

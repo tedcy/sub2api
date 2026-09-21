@@ -745,7 +745,7 @@ export default {
         codexFingerprintDevice: '仅设备',
         codexFingerprintSession: '设备+会话',
         codexFingerprintFull: '完全收敛',
-        codexTurnTicket: 'Codex 292 门票',
+        codexTurnTicket: 'Codex 门票',
         codexTurnTicketAttempts: '打票 {count} 次',
         codexTurnTicketWaiting: '等待打票',
         codexTurnTicketTokenInvalid: '令牌失效，已停止打票',
@@ -768,7 +768,7 @@ export default {
         codexTurnTicketDesc: '显示已配置模型的门票状态。仅在启用缺票拦截时，没有有效门票的模型才会暂停调度。',
         codexTurnTicketMissing: '暂无有效门票，仍允许请求',
         codexTurnTicketReady: '剩余 {time}',
-        codexTurnTicketPaused: '未打到 292，该模型已暂停',
+        codexTurnTicketPaused: '暂无有效门票，该模型已暂停',
         codexTurnTicketRevoked: '检测到上游降级，门票已撤销，等待重新验证',
         codexImageTool: 'Codex 图片桥接策略',
         codexImageToolDesc:
