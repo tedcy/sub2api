@@ -135,8 +135,14 @@ func TestCodexTicketRecoveryRequiresOnlyValid292(t *testing.T) {
 }
 
 func TestCodexTicketHTTPResponsePaths(t *testing.T) {
-	for _, route := range []string{"json", "sse", "passthrough_json", "chat_buffered", "messages_buffered", "ws_http_bridge"} {
+	routes := []string{"json", "sse", "passthrough_json", "chat_buffered", "messages_buffered", "ws_http_bridge"}
+	for _, route := range routes {
+		routes = append(routes, route+"_unselected")
+	}
+	for _, route := range routes {
 		t.Run(route, func(t *testing.T) {
+			unselected := strings.HasSuffix(route, "_unselected")
+			route = strings.TrimSuffix(route, "_unselected")
 			ctx := context.Background()
 			account := ticketTestAccount(41)
 			account.Concurrency = 1
@@ -145,6 +151,9 @@ func TestCodexTicketHTTPResponsePaths(t *testing.T) {
 			resp := &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"text/event-stream"}}, Body: io.NopCloser(strings.NewReader(sse))}
 			svc := ticketTestService(t, config.OpenAICodexTicketConfig{Enabled: true, FailClosed: true}, &httpUpstreamRecorder{resp: resp})
 			svc.cfg.Gateway.MaxLineSize = defaultMaxLineSize
+			if unselected {
+				svc.cfg.Gateway.OpenAICodexTicket.Models = []string{"gpt-6-astra"}
+			}
 			svc.storeOpenAICodexTicket(ctx, account, &openAICodexTicket{Model: model, State: fakeCodexTicketState(292), Length: 292, ExpiresAt: time.Now().Add(time.Hour)})
 			c, _ := gin.CreateTestContext(httptest.NewRecorder())
 			c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
@@ -170,9 +179,14 @@ func TestCodexTicketHTTPResponsePaths(t *testing.T) {
 				_, err = svc.proxyOpenAIWSHTTPBridgeTurn(ctx, c, account, "token", payload, len(payload), model, "", "", "", "", 1, func([]byte) error { return nil }, map[string]uint64{model: 0})
 			}
 			require.NoError(t, err)
-			require.Nil(t, svc.lookupOpenAICodexTicket(account, model))
+			require.Equal(t, !unselected, svc.codexTicketState(account, model).Revoked)
 			_, err = svc.buildUpstreamRequest(ctx, c, account, payload, "token", true, "", false)
-			require.ErrorIs(t, err, ErrOpenAICodexTicketUnavailable)
+			if unselected {
+				require.NoError(t, err)
+			} else {
+				require.Nil(t, svc.lookupOpenAICodexTicket(account, model))
+				require.ErrorIs(t, err, ErrOpenAICodexTicketUnavailable)
+			}
 		})
 	}
 }
@@ -205,12 +219,21 @@ func TestCodexTicketPoolCompatibility(t *testing.T) {
 }
 
 func TestCodexTicketPooledWSRevocation(t *testing.T) {
+	for _, selected := range []bool{true, false} {
+		t.Run(fmt.Sprint(selected), func(t *testing.T) { testCodexTicketPooledWSSelection(t, selected) })
+	}
+}
+
+func testCodexTicketPooledWSSelection(t *testing.T, selected bool) {
 	ctx := context.Background()
 	cfg := passthroughLifecycleConfig()
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
 	cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 1
 	cfg.Gateway.OpenAICodexTicket = config.OpenAICodexTicketConfig{Enabled: true, FailClosed: true}
+	if !selected {
+		cfg.Gateway.OpenAICodexTicket.Models = []string{"gpt-5.6-sol"}
+	}
 	conn := &openAIWSCaptureConn{events: [][]byte{[]byte(`{"type":"response.completed","response":{"id":"resp_revoke","model":"gpt-5.6-luna","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hi"}]}],"usage":{"input_tokens":1,"output_tokens":1}}}`)}}
 	pool := newOpenAIWSConnPool(cfg)
 	defer pool.Close()
@@ -225,5 +248,6 @@ func TestCodexTicketPooledWSRevocation(t *testing.T) {
 	result, err := svc.Forward(ctx, c, account, []byte(`{"model":"gpt-6-astra","stream":false,"instructions":"help","input":[{"role":"user","content":"hi"}]}`))
 	require.NoError(t, err)
 	require.True(t, result.OpenAIWSMode)
-	require.Nil(t, svc.lookupOpenAICodexTicket(account, "gpt-6-astra"))
+	require.Equal(t, selected, svc.codexTicketState(account, "gpt-6-astra").Revoked)
+	require.Equal(t, selected, svc.openAICodexTicketBlocksAccount(account, "gpt-6-astra"))
 }

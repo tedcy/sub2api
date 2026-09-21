@@ -221,6 +221,8 @@ type SystemSettings struct {
 	OpenAICodexTicketHarvestProxyURL        string `json:"openai_codex_ticket_harvest_proxy_url"`
 	OpenAICodexTicketHarvestProxyConfigured bool   `json:"openai_codex_ticket_harvest_proxy_configured"`
 
+	OpenAICodexTicketModels []string `json:"openai_codex_ticket_models"`
+
 	// codex_cli_only 加固
 	MinCodexVersion                      string `json:"min_codex_version"`
 	MaxCodexVersion                      string `json:"max_codex_version"`

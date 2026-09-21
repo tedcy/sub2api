@@ -95,14 +95,8 @@ func (store *openAICodexTicketLogStore) snapshot(accountID int64, model string) 
 func (s *OpenAIGatewayService) OpenAICodexTicketLogs(ctx context.Context, account *Account, model string, now time.Time) (*OpenAICodexTicketLogs, error) {
 	model = normalizeOpenAICodexTicketModel(model)
 	cfg := s.openAICodexTicketConfig()
-	configured := false
-	for _, candidate := range cfg.Models {
-		if normalizeOpenAICodexTicketModel(candidate) == model {
-			configured = true
-			break
-		}
-	}
-	if !configured {
+	// Deselection stops harvesting, not access to previously collected logs.
+	if model != openAICodexTicketDefaultModel && model != openAICodexTicketDefaultSolModel {
 		return nil, ErrOpenAICodexTicketLogModel
 	}
 	result := &OpenAICodexTicketLogs{Model: model, Entries: []OpenAICodexTicketLogEntry{}, Limit: OpenAICodexTicketLogLimit, TargetLength: cfg.TargetLength}

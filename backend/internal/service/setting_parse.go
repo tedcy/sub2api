@@ -897,6 +897,15 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	} else if s != nil && s.cfg != nil {
 		result.OpenAICodexTicketEnabled = s.cfg.Gateway.OpenAICodexTicket.Enabled
 	}
+	result.OpenAICodexTicketModels = s.defaultCodexTicketModels()
+	if raw := settings[SettingKeyOpenAICodexTicketModels]; raw != "" {
+		var models []string
+		if json.Unmarshal([]byte(raw), &models) == nil {
+			if normalized, err := normalizeCodexTicketModels(models); err == nil {
+				result.OpenAICodexTicketModels = normalized
+			}
+		}
+	}
 	result.OpenAICodexTicketHarvestProxyURL = strings.TrimSpace(settings[SettingKeyOpenAICodexTicketHarvestProxyURL])
 	// codex_cli_only 加固
 	result.MinCodexVersion = settings[SettingKeyMinCodexVersion]

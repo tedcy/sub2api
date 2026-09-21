@@ -544,6 +544,9 @@ export default {
         openaiCodexVersionSyncedValue: 'Currently synced: {version}',
         codexHardeningTitle: "Codex Settings",
         codexTicketEnabled: "292 ticket harvest",
+        codexTicketModels: 'Ticket models',
+        codexTicketModelsDesc: 'Deselected models are not probed, receive no ticket injection, and are not blocked for missing tickets or upstream downgrades. Model mismatch auditing remains enabled. Select at least one model when harvesting is enabled.',
+        codexTicketModelsRequired: 'Select at least Astra or Sol when ticket harvesting is enabled.',
         codexTicketEnabledDesc:
           "When off, the gateway neither harvests nor injects x-codex-turn-state and forwards traffic as usual. When on, it harvests tickets in the background and overwrites that header on production requests.",
         codexTicketHarvestProxy: "292 harvest proxy",

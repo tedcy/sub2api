@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -47,6 +48,9 @@ func (s *OpenAIGatewayService) recordCodexTicketProbe(account *Account, model st
 // memory, never from persisted Attempts. It also observes natural expiry when
 // the harvester has not started the next probe yet.
 func (s *OpenAIGatewayService) OpenAICodexTicketStatuses(account *Account, cfg config.OpenAICodexTicketConfig, now time.Time) []OpenAICodexTicketStatus {
+	if s != nil && s.settingService != nil {
+		cfg.Models = s.openAICodexTicketModelsContext(context.Background())
+	}
 	statuses := OpenAICodexTicketStatuses(account, cfg, now)
 	if s == nil {
 		return statuses

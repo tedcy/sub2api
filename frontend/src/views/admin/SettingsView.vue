@@ -4516,6 +4516,28 @@
                     v-model="form.openai_codex_ticket_enabled"
                   />
                 </div>
+                <fieldset>
+                  <legend class="text-sm font-medium text-gray-900 dark:text-white">
+                    {{ t("admin.settings.gatewayForwarding.codexTicketModels") }}
+                  </legend>
+                  <div class="mt-2 flex gap-6">
+                    <label
+                      v-for="model in ['gpt-6-astra', 'gpt-5.6-sol']"
+                      :key="model"
+                      class="flex items-center gap-2 text-sm"
+                    >
+                      <input
+                        v-model="form.openai_codex_ticket_models"
+                        type="checkbox"
+                        :value="model"
+                      />
+                      {{ model === 'gpt-6-astra' ? 'Astra' : 'Sol' }}
+                    </label>
+                  </div>
+                  <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.gatewayForwarding.codexTicketModelsDesc") }}
+                  </p>
+                </fieldset>
                 <div>
                   <h3 class="text-base font-semibold text-gray-900 dark:text-white">
                     {{ t("admin.settings.gatewayForwarding.codexTicketHarvestProxy") }}
@@ -9878,6 +9900,7 @@ const form = reactive<SettingsForm>({
   openai_codex_client_version_synced: "",
   openai_codex_version_auto_sync_enabled: true,
   openai_codex_ticket_enabled: false,
+  openai_codex_ticket_models: ["gpt-6-astra", "gpt-5.6-sol"],
   openai_codex_ticket_harvest_proxy_url: "",
   openai_codex_ticket_harvest_proxy_configured: false,
   // codex_cli_only 加固
@@ -11131,6 +11154,10 @@ const siteBillingModeHint = computed(() =>
 );
 
 async function saveSettings() {
+  if (form.openai_codex_ticket_enabled && form.openai_codex_ticket_models.length === 0) {
+    appStore.showError(t("admin.settings.gatewayForwarding.codexTicketModelsRequired"));
+    return;
+  }
   saving.value = true;
   try {
     const normalizedTableDefaultPageSize = Math.floor(
@@ -11487,6 +11514,7 @@ async function saveSettings() {
       openai_codex_version_auto_sync_enabled:
         form.openai_codex_version_auto_sync_enabled,
       openai_codex_ticket_enabled: form.openai_codex_ticket_enabled,
+      openai_codex_ticket_models: form.openai_codex_ticket_models,
       openai_codex_ticket_harvest_proxy_url:
         form.openai_codex_ticket_harvest_proxy_url?.trim() || "",
       min_codex_version: form.min_codex_version?.trim() || "",

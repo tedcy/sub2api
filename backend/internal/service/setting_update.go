@@ -486,6 +486,16 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyOpenAICodexClientVersion] = NormalizeCodexClientVersion(settings.OpenAICodexClientVersion)
 	updates[SettingKeyOpenAICodexVersionAutoSyncEnabled] = strconv.FormatBool(settings.OpenAICodexVersionAutoSyncEnabled)
 	updates[SettingKeyOpenAICodexTicketEnabled] = strconv.FormatBool(settings.OpenAICodexTicketEnabled)
+	models := settings.OpenAICodexTicketModels
+	if models == nil {
+		models = s.GetOpenAICodexTicketModels(ctx, s.defaultCodexTicketModels())
+	}
+	models, err = normalizeCodexTicketModels(models)
+	if err != nil || (settings.OpenAICodexTicketEnabled && len(models) == 0) {
+		return nil, infraerrors.BadRequest("INVALID_CODEX_TICKET_MODELS", "Select at least one of gpt-6-astra and gpt-5.6-sol when ticket harvesting is enabled")
+	}
+	encodedModels, _ := json.Marshal(models)
+	updates[SettingKeyOpenAICodexTicketModels] = string(encodedModels)
 	if err := ValidateOpenAICodexTicketHarvestProxyURL(settings.OpenAICodexTicketHarvestProxyURL); err != nil {
 		return nil, infraerrors.BadRequest("INVALID_CODEX_HARVEST_PROXY", err.Error())
 	}
@@ -745,6 +755,7 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 	// 这里没有它的最新值，重算会把同步结果覆盖成陈旧值。
 	s.InvalidateOpenAICodexClientVersionCache()
 	s.InvalidateOpenAICodexTicketEnabledCache()
+	s.InvalidateOpenAICodexTicketModelsCache()
 	s.InvalidateOpenAICodexTicketHarvestProxyCache()
 	openAIAdvancedSchedulerSettingSF.Forget(openAIAdvancedSchedulerSettingKey)
 	openAIAdvancedSchedulerSettingCache.Store(&cachedOpenAIAdvancedSchedulerSetting{

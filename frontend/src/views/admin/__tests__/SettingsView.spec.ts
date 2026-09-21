@@ -735,6 +735,41 @@ describe("admin SettingsView payment visible method controls", () => {
     wrapper.unmount();
   });
 
+  it("defaults to both Codex ticket models and submits a single selection", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    const astra = wrapper.get<HTMLInputElement>('input[type="checkbox"][value="gpt-6-astra"]');
+    const sol = wrapper.get<HTMLInputElement>('input[type="checkbox"][value="gpt-5.6-sol"]');
+    expect(astra.element.checked).toBe(true);
+    expect(sol.element.checked).toBe(true);
+    await sol.setValue(false);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings.mock.calls[0]?.[0].openai_codex_ticket_models).toEqual(["gpt-6-astra"]);
+    wrapper.unmount();
+  });
+
+  it("loads ticket models and requires a selection only when enabled", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      openai_codex_ticket_enabled: true,
+      openai_codex_ticket_models: ["gpt-5.6-sol"],
+    });
+    const wrapper = mountView();
+    await flushPromises();
+    expect(wrapper.get<HTMLInputElement>('input[value="gpt-6-astra"]').element.checked).toBe(false);
+    await wrapper.get('input[value="gpt-5.6-sol"]').setValue(false);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings).not.toHaveBeenCalled();
+    expect(showError).toHaveBeenCalled();
+    await wrapper.get("#codex-ticket-enabled").setValue(false);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings.mock.calls[0]?.[0].openai_codex_ticket_models).toEqual([]);
+    wrapper.unmount();
+  });
+
   it("loads the masked Codex harvest proxy and submits a replacement URL", async () => {
     getSettings.mockResolvedValueOnce({
       ...baseSettingsResponse,

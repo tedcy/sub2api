@@ -152,3 +152,66 @@ func TestPassthroughLifecycle_TicketUnavailable(t *testing.T) {
 		}
 	}
 }
+
+func TestPassthroughLifecycle_TicketModelDeselected(t *testing.T) {
+	for _, messageType := range []coderws.MessageType{coderws.MessageText, coderws.MessageBinary} {
+		t.Run(messageType.String(), func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			upstream := newStagedPassthroughConn()
+			cfg := passthroughLifecycleConfig()
+			cfg.Gateway.OpenAIWS.OAuthEnabled = true
+			cfg.Gateway.OpenAICodexTicket = config.OpenAICodexTicketConfig{Enabled: true, FailClosed: true}
+			svc := newPassthroughLifecycleService(cfg, upstream)
+			repo := &codexTicketSettingRepo{codexPolicyMigrationRepoStub: &codexPolicyMigrationRepoStub{values: map[string]string{}}}
+			svc.settingService = NewSettingService(repo, cfg)
+			account := ticketTestAccount(41)
+			account.Concurrency = 1
+			account.Extra = map[string]any{"openai_oauth_responses_websockets_v2_mode": OpenAIWSIngressModePassthrough}
+			svc.storeOpenAICodexTicket(ctx, account, &openAICodexTicket{Model: "gpt-5.6-sol", State: fakeCodexTicketState(292), Length: 292, ExpiresAt: time.Now().Add(time.Hour)})
+			var slots, successfulTurns atomic.Int32
+			server, serverErr := startPassthroughLifecycleServerWithHooks(t, ctx, svc, account, func(*gin.Context) *OpenAIWSIngressHooks {
+				return &OpenAIWSIngressHooks{
+					BeforeTurn: func(int) error { slots.Store(1); return nil },
+					AfterTurn: func(_ int, result *OpenAIForwardResult, err error) {
+						slots.Store(0)
+						if result != nil && err == nil {
+							successfulTurns.Add(1)
+						}
+					},
+					MapRequestModel: func(_ int, _ string) (string, error) { return "gpt-5.6-sol", nil },
+				}
+			})
+			defer server.Close()
+			client := dialPassthroughLifecycleClientWithPayload(t, server, `{"type":"response.create","model":"client-alias"}`)
+			defer client.CloseNow()
+			requirePassthroughUpstreamWrite(t, upstream, 3*time.Second)
+			// Change the selection while the first request is already in flight.
+			setTicketModels(t, svc.settingService, repo, "gpt-6-astra")
+			for turn := 1; turn <= 2; turn++ {
+				upstream.Send(fmt.Sprintf(`{"type":"response.completed","response":{"id":"resp_%d","model":"gpt-5.6-luna","usage":{"input_tokens":1,"output_tokens":1}}}`, turn))
+				_, err := readPassthroughLifecycleFrame(t, client, 3*time.Second)
+				require.NoError(t, err)
+				if turn == 1 {
+					writeCtx, stop := context.WithTimeout(ctx, 3*time.Second)
+					err = client.Write(writeCtx, messageType, []byte(`{"type":"response.create"}`))
+					stop()
+					require.NoError(t, err)
+					requirePassthroughUpstreamWrite(t, upstream, 3*time.Second)
+				}
+			}
+			require.Eventually(t, func() bool { return successfulTurns.Load() == 2 }, time.Second, time.Millisecond)
+			client.CloseNow()
+			cancel()
+			select {
+			case <-serverErr:
+			case <-time.After(3 * time.Second):
+				t.Fatal("relay did not exit")
+			}
+			require.Empty(t, upstream.writes)
+			require.Zero(t, slots.Load())
+			require.EqualValues(t, 2, successfulTurns.Load())
+			require.Zero(t, svc.codexTicketVersion(account, "gpt-5.6-sol"))
+		})
+	}
+}

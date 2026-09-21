@@ -98,7 +98,7 @@ func (r *codexTicketLifecycleSettings) GetValue(ctx context.Context, key string)
 }
 
 func TestCodexTicketHarvesterStopCancelsInFlightWork(t *testing.T) {
-	for _, stage := range []string{"settings-enabled", "settings-proxy", "accounts", "upstream", "persist"} {
+	for _, stage := range []string{"settings-enabled", "settings-models", "settings-proxy", "accounts", "upstream", "persist"} {
 		t.Run(stage, func(t *testing.T) {
 			started := make(chan struct{})
 			cancelled := make(chan struct{})
@@ -128,7 +128,7 @@ func TestCodexTicketHarvesterStopCancelsInFlightWork(t *testing.T) {
 			}
 			if strings.HasPrefix(stage, "settings-") {
 				svc.settingService = NewSettingService(&codexTicketLifecycleSettings{get: func(ctx context.Context, key string) (string, error) {
-					if stage == "settings-enabled" && key == SettingKeyOpenAICodexTicketEnabled || stage == "settings-proxy" && key == SettingKeyOpenAICodexTicketHarvestProxyURL {
+					if stage == "settings-enabled" && key == SettingKeyOpenAICodexTicketEnabled || stage == "settings-models" && key == SettingKeyOpenAICodexTicketModels || stage == "settings-proxy" && key == SettingKeyOpenAICodexTicketHarvestProxyURL {
 						return "", block(ctx)
 					}
 					if key == SettingKeyOpenAICodexTicketEnabled {
@@ -170,7 +170,7 @@ func (b *codexTicketHeaderOnlyBody) Read([]byte) (int, error) { b.reads++; retur
 func (b *codexTicketHeaderOnlyBody) Close() error             { b.closes++; return nil }
 func TestCodexTicketProbeClosesStreamWithoutDraining(t *testing.T) {
 	body := &codexTicketHeaderOnlyBody{}
-	svc := ticketTestService(t, config.OpenAICodexTicketConfig{}, &codexTicketFuncUpstream{do: func(*http.Request) (*http.Response, error) {
+	svc := ticketTestService(t, config.OpenAICodexTicketConfig{Enabled: true}, &codexTicketFuncUpstream{do: func(*http.Request) (*http.Response, error) {
 		response := codexTicketResponse()
 		response.Body = body
 		return response, nil

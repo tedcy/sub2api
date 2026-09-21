@@ -34,6 +34,8 @@ const (
 // 且 fail_closed 禁止裸打业务请求。
 var ErrOpenAICodexTicketUnavailable = errors.New("codex turn-state ticket unavailable")
 
+var errOpenAICodexTicketModelDisabled = errors.New("ticket model is not selected")
+
 type openAICodexTicket struct {
 	Version    uint64    `json:"version,omitempty"`
 	AccountID  int64     `json:"account_id"`
@@ -87,12 +89,24 @@ func (s *OpenAIGatewayService) openAICodexTicketConfig() config.OpenAICodexTicke
 	return cfg
 }
 
+func (s *OpenAIGatewayService) openAICodexTicketModelsContext(ctx context.Context) []string {
+	models := s.openAICodexTicketConfig().Models
+	if s != nil && s.settingService != nil {
+		return s.settingService.GetOpenAICodexTicketModels(ctx, models)
+	}
+	return models
+}
+
 func (s *OpenAIGatewayService) openAICodexTicketGatedModel(model string) bool {
+	return s.openAICodexTicketGatedModelContext(context.Background(), model)
+}
+
+func (s *OpenAIGatewayService) openAICodexTicketGatedModelContext(ctx context.Context, model string) bool {
 	model = normalizeOpenAICodexTicketModel(model)
-	if model == "" || !s.openAICodexTicketEnabled() {
+	if model == "" || !s.openAICodexTicketEnabledContext(ctx) {
 		return false
 	}
-	for _, item := range s.openAICodexTicketConfig().Models {
+	for _, item := range s.openAICodexTicketModelsContext(ctx) {
 		if normalizeOpenAICodexTicketModel(item) == model {
 			return true
 		}
@@ -121,7 +135,7 @@ func OpenAICodexTicketStatuses(account *Account, cfg config.OpenAICodexTicketCon
 		return nil
 	}
 	models, targetLen := cfg.Models, cfg.TargetLength
-	if len(models) == 0 {
+	if models == nil {
 		models = []string{openAICodexTicketDefaultModel, openAICodexTicketDefaultSolModel}
 	}
 	if targetLen <= 0 {
@@ -296,6 +310,10 @@ func (s *OpenAIGatewayService) storeOpenAICodexTicket(ctx context.Context, accou
 	state := s.codexTicketState(account, model)
 	state.Lock()
 	defer state.Unlock()
+	// Deselection discards probe results without deleting existing tickets.
+	if len(expected) > 0 && !s.openAICodexTicketGatedModelContext(ctx, model) {
+		return false
+	}
 	if state.dirty || (len(expected) > 0 && expected[0] != state.Version) || (state.Revoked && len(expected) == 0) {
 		return false
 	}
@@ -322,7 +340,7 @@ func (s *OpenAIGatewayService) applyOpenAICodexTicket(ctx context.Context, accou
 		return nil
 	}
 	model = normalizeOpenAICodexTicketModel(model)
-	if model == "" || !s.openAICodexTicketGatedModel(model) {
+	if model == "" || !s.openAICodexTicketGatedModelContext(ctx, model) {
 		return nil
 	}
 	cfg := s.openAICodexTicketConfig()
@@ -421,6 +439,9 @@ func (s *OpenAIGatewayService) fireOpenAICodexTicketProbe(ctx context.Context, a
 	if s.codexTicketHarvestSkipReason(account, time.Now()) != "" || s.lookupOpenAICodexTicketTokenInvalidation(account).matches(token) {
 		return "", 0, errOpenAICodexTicketHarvestPaused
 	}
+	if !s.openAICodexTicketGatedModelContext(ctx, model) {
+		return "", 0, errOpenAICodexTicketModelDisabled
+	}
 	started := time.Now()
 	attempt := s.recordCodexTicketProbe(account, model, started)
 	if len(attemptOut) > 0 && attemptOut[0] != nil {
@@ -514,7 +535,7 @@ func (s *OpenAIGatewayService) StartOpenAICodexTicketHarvester() {
 	logger.L().Info("openai_codex_ticket harvester started",
 		zap.Int("ttl_seconds", s.openAICodexTicketConfig().TTLSeconds),
 		zap.Int("target_length", s.openAICodexTicketConfig().TargetLength),
-		zap.Strings("models", s.openAICodexTicketConfig().Models),
+		zap.Strings("default_models", s.openAICodexTicketConfig().Models),
 	)
 }
 
@@ -564,6 +585,7 @@ func (s *OpenAIGatewayService) refreshOpenAICodexTickets(ctx context.Context) {
 	cfg := s.openAICodexTicketConfig()
 	now := time.Now()
 	refreshBefore := time.Duration(cfg.RefreshBeforeSeconds) * time.Second
+	models := s.openAICodexTicketModelsContext(ctx)
 	var wg sync.WaitGroup
 	probed := 0
 	for i := range accounts {
@@ -571,7 +593,7 @@ func (s *OpenAIGatewayService) refreshOpenAICodexTickets(ctx context.Context) {
 		if account.Status != StatusActive || !isOpenAICodexTicketAccount(&account) || s.codexTicketHarvestSkipReason(&account, now) != "" {
 			continue
 		}
-		for _, model := range cfg.Models {
+		for _, model := range models {
 			model := normalizeOpenAICodexTicketModel(model)
 			if model == "" {
 				continue
@@ -602,7 +624,7 @@ func (s *OpenAIGatewayService) refreshOpenAICodexTickets(ctx context.Context) {
 // gAAAAA 前缀）就落库；否则记 Info miss，交给下个周期重试。同一 key 并发去重，避免上一发还没
 // 回来又叠一发。
 func (s *OpenAIGatewayService) probeOnceOpenAICodexTicket(ctx context.Context, account *Account, model string) {
-	if s == nil || !isOpenAICodexTicketAccount(account) || ctx.Err() != nil || !s.openAICodexTicketEnabledContext(ctx) {
+	if s == nil || !isOpenAICodexTicketAccount(account) || ctx.Err() != nil || !s.openAICodexTicketGatedModelContext(ctx, model) {
 		return
 	}
 	cfg := s.openAICodexTicketConfig()
@@ -626,7 +648,7 @@ func (s *OpenAIGatewayService) probeOnceOpenAICodexTicket(ctx context.Context, a
 		}
 		var attempt uint64
 		state, status, perr := s.fireOpenAICodexTicketProbe(ctx, account, token, model, proxyURL, time.Duration(cfg.HarvestAttemptTimeoutSeconds)*time.Second, &attempt)
-		if errors.Is(perr, errOpenAICodexTicketHarvestPaused) {
+		if errors.Is(perr, errOpenAICodexTicketHarvestPaused) || errors.Is(perr, errOpenAICodexTicketModelDisabled) {
 			return nil, nil
 		}
 		if perr != nil {

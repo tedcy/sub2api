@@ -537,6 +537,9 @@ export default {
         openaiCodexVersionSyncedValue: '当前同步到：{version}',
         codexHardeningTitle: 'Codex 设置',
         codexTicketEnabled: '292 打票',
+        codexTicketModels: '打票模型',
+        codexTicketModelsDesc: '取消勾选后，该模型不打票、不注入门票，也不因缺票或上游降级而阻断；保留模型不一致审计。开启打票时至少选择一个模型。',
+        codexTicketModelsRequired: '开启打票时，请至少选择 Astra 或 Sol。',
         codexTicketEnabledDesc:
           '关闭后不打票、不注入 x-codex-turn-state，按原链路转发。开启后后台打票，并在业务请求中覆盖该头。',
         codexTicketHarvestProxy: '292 打票代理',

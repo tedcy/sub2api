@@ -81,7 +81,7 @@ func (s *OpenAIGatewayService) persistCodexTicketState(ctx context.Context, stat
 }
 
 func (s *OpenAIGatewayService) revokeCodexTicket(ctx context.Context, account *Account, sent, observed string, version uint64) {
-	if !isOpenAICodexTicketAccount(account) || !s.openAICodexTicketEnabledContext(ctx) || !isCodexTicketDowngrade(sent, observed) {
+	if !isOpenAICodexTicketAccount(account) || !s.openAICodexTicketGatedModelContext(ctx, sent) || !isCodexTicketDowngrade(sent, observed) {
 		return
 	}
 	state := s.codexTicketState(account, sent)
